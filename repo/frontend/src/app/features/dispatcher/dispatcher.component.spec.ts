@@ -108,6 +108,70 @@ describe('DispatcherComponent', () => {
     });
   });
 
+  describe('createTask', () => {
+    beforeEach(() => {
+      fixture.detectChanges();
+      flushInitialRequests();
+    });
+
+    it('should not POST when instanceId or title is missing', () => {
+      component.taskInstanceId = null;
+      component.taskTitle = '';
+      component.createTask();
+      httpCtrl.expectNone('/api/v1/tasks');
+    });
+
+    it('should POST without predecessor when optional field empty', () => {
+      component.taskInstanceId = 3;
+      component.taskTitle = 'Review stops';
+      component.taskPredecessorIdInput = '';
+      component.createTask();
+
+      const req = httpCtrl.expectOne('/api/v1/tasks');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ instanceId: 3, title: 'Review stops' });
+      req.flush({ id: 99 });
+
+      httpCtrl.expectOne('/api/v1/workflows').flush([]);
+      httpCtrl.expectOne('/api/v1/tasks?status=PENDING').flush([]);
+
+      expect(component.taskInstanceId).toBeNull();
+      expect(component.taskTitle).toBe('');
+    });
+
+    it('should POST with predecessorTaskId when a single id is set', () => {
+      component.taskInstanceId = 3;
+      component.taskTitle = 'Follow-up';
+      component.taskPredecessorIdInput = '12';
+      component.createTask();
+
+      const req = httpCtrl.expectOne('/api/v1/tasks');
+      expect(req.request.body).toEqual({ instanceId: 3, title: 'Follow-up', predecessorTaskId: 12 });
+      req.flush({ id: 100 });
+
+      httpCtrl.expectOne('/api/v1/workflows').flush([]);
+      httpCtrl.expectOne('/api/v1/tasks?status=PENDING').flush([]);
+    });
+
+    it('should POST predecessorTaskIds when multiple ids', () => {
+      component.taskInstanceId = 3;
+      component.taskTitle = 'Join';
+      component.taskPredecessorIdInput = '10, 20, 30';
+      component.createTask();
+
+      const req = httpCtrl.expectOne('/api/v1/tasks');
+      expect(req.request.body).toEqual({
+        instanceId: 3,
+        title: 'Join',
+        predecessorTaskIds: [10, 20, 30],
+      });
+      req.flush({ id: 101 });
+
+      httpCtrl.expectOne('/api/v1/workflows').flush([]);
+      httpCtrl.expectOne('/api/v1/tasks?status=PENDING').flush([]);
+    });
+  });
+
   describe('loadTasks', () => {
     beforeEach(() => {
       fixture.detectChanges();
@@ -120,7 +184,7 @@ describe('DispatcherComponent', () => {
 
       const req = httpCtrl.expectOne('/api/v1/tasks?status=PENDING');
       expect(req.request.method).toBe('GET');
-      req.flush([{ id: 1, taskName: 'Review', status: 'PENDING' }]);
+      req.flush([{ id: 1, instanceId: 9, title: 'Review', status: 'PENDING' }]);
 
       expect(component.tasks.length).toBe(1);
     });

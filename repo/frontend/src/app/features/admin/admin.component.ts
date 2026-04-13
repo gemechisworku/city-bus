@@ -16,7 +16,7 @@ export class AdminComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly http = inject(HttpClient);
 
-  tab: 'import' | 'ranking' | 'rules' | 'dicts' | 'users' | 'alerts' | 'diag' | 'audit' = 'import';
+  tab: 'import' | 'ranking' | 'rules' | 'dicts' | 'notifs' | 'users' | 'alerts' | 'diag' | 'audit' = 'import';
 
   // --- Import ---
   importFile: File | null = null;
@@ -37,6 +37,13 @@ export class AdminComponent implements OnInit {
   dictFieldName = '';
   dictCanonicalValue = '';
   dictAliases = '';
+
+  // --- Notification templates (message copy) ---
+  notifTemplates: any[] = [];
+  notifCode = '';
+  notifSubject = '';
+  notifBody = '';
+  notifChannel = 'IN_APP';
 
   // --- Users ---
   users: any[] = [];
@@ -59,6 +66,7 @@ export class AdminComponent implements OnInit {
     this.loadRanking();
     this.loadRules();
     this.loadDicts();
+    this.loadNotificationTemplates();
     this.loadUsers();
     this.loadAlerts();
     this.loadAudit();
@@ -124,7 +132,7 @@ export class AdminComponent implements OnInit {
 
   createDict(): void {
     if (!this.dictFieldName || !this.dictCanonicalValue) return;
-    const aliases = this.dictAliases ? this.dictAliases.split(',').map((s: string) => s.trim()) : [];
+    const aliases = this.dictAliases.trim() ? this.dictAliases.split(',').map((s: string) => s.trim()).join(', ') : null;
     this.http
       .post('/api/v1/admin/dictionaries', { fieldName: this.dictFieldName, canonicalValue: this.dictCanonicalValue, aliases, enabled: true })
       .subscribe({ next: () => { this.loadDicts(); this.dictFieldName = ''; this.dictCanonicalValue = ''; this.dictAliases = ''; } });
@@ -132,6 +140,36 @@ export class AdminComponent implements OnInit {
 
   deleteDict(id: number): void {
     this.http.delete(`/api/v1/admin/dictionaries/${id}`).subscribe({ next: () => this.loadDicts() });
+  }
+
+  // ---- Notification templates ----
+  loadNotificationTemplates(): void {
+    this.http.get<any[]>('/api/v1/admin/notification-templates').subscribe({ next: (r) => (this.notifTemplates = r) });
+  }
+
+  createNotificationTemplate(): void {
+    if (!this.notifCode || !this.notifSubject || !this.notifBody) return;
+    this.http
+      .post('/api/v1/admin/notification-templates', {
+        code: this.notifCode,
+        subject: this.notifSubject,
+        bodyTemplate: this.notifBody,
+        channel: this.notifChannel || 'IN_APP',
+        enabled: true,
+      })
+      .subscribe({
+        next: () => {
+          this.loadNotificationTemplates();
+          this.notifCode = '';
+          this.notifSubject = '';
+          this.notifBody = '';
+          this.notifChannel = 'IN_APP';
+        },
+      });
+  }
+
+  deleteNotificationTemplate(id: number): void {
+    this.http.delete(`/api/v1/admin/notification-templates/${id}`).subscribe({ next: () => this.loadNotificationTemplates() });
   }
 
   // ---- Users ----

@@ -26,6 +26,14 @@
         <input placeholder="Title" [(ngModel)]="wfTitle" />
         <button (click)="createWorkflow()">Create</button>
       </div>
+      <h3>Add task to instance</h3>
+      <p class="hint">Use a workflow instance ID from the table. Predecessor task ID is optional (same instance; that task must be approved first).</p>
+      <div class="input-row">
+        <input type="number" placeholder="Instance ID" [(ngModel)]="taskInstanceId" />
+        <input placeholder="Task title" [(ngModel)]="taskTitle" />
+        <input placeholder="Predecessor task ID(s), comma-separated" [(ngModel)]="taskPredecessorIdInput" />
+        <button (click)="createTask()">Add task</button>
+      </div>
       @if (workflows.length) {
         <table>
           <thead><tr><th>ID</th><th>Definition</th><th>Title</th><th>Status</th><th>Created</th></tr></thead>
@@ -61,13 +69,14 @@
       </div>
       @if (tasks.length) {
         <table>
-          <thead><tr><th>ID</th><th>Workflow</th><th>Name</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>ID</th><th>Instance</th><th>Predecessor</th><th>Title</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             @for (t of tasks; track t.id) {
               <tr>
                 <td>{{ t.id }}</td>
-                <td>{{ t.workflowInstanceId }}</td>
-                <td>{{ t.taskName }}</td>
+                <td>{{ t.instanceId }}</td>
+                <td>{{ (t.predecessorTaskIds?.length ? t.predecessorTaskIds.join(', ') : null) ?? '—' }}</td>
+                <td>{{ t.title }}</td>
                 <td><span class="badge" [attr.data-status]="t.status">{{ t.status }}</span></td>
                 <td>
                   @if (t.status === 'PENDING') {

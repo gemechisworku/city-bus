@@ -13,6 +13,7 @@
     <button [class.active]="tab === 'ranking'" (click)="tab = 'ranking'">Ranking</button>
     <button [class.active]="tab === 'rules'" (click)="tab = 'rules'">Cleaning rules</button>
     <button [class.active]="tab === 'dicts'" (click)="tab = 'dicts'">Dictionaries</button>
+    <button [class.active]="tab === 'notifs'" (click)="tab = 'notifs'">Notification templates</button>
     <button [class.active]="tab === 'users'" (click)="tab = 'users'">Users</button>
     <button [class.active]="tab === 'alerts'" (click)="tab = 'alerts'">Alerts</button>
     <button [class.active]="tab === 'diag'" (click)="tab = 'diag'">Diagnostics</button>
@@ -108,6 +109,40 @@
         </table>
       } @else {
         <p class="empty">No dictionary entries.</p>
+      }
+    </section>
+  }
+
+  <!-- NOTIFICATION TEMPLATES -->
+  @if (tab === 'notifs') {
+    <section class="section">
+      <h2>Notification templates</h2>
+      <p class="hint">In-app / message copy templates (distinct from import field mappings).</p>
+      <div class="input-row">
+        <input placeholder="Code (unique)" [(ngModel)]="notifCode" />
+        <input placeholder="Subject" [(ngModel)]="notifSubject" />
+        <input placeholder="Channel" [(ngModel)]="notifChannel" />
+        <input placeholder="Body template" [(ngModel)]="notifBody" />
+        <button (click)="createNotificationTemplate()">Add</button>
+      </div>
+      @if (notifTemplates.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Code</th><th>Subject</th><th>Channel</th><th>Body</th><th></th></tr></thead>
+          <tbody>
+            @for (n of notifTemplates; track n.id) {
+              <tr>
+                <td>{{ n.id }}</td>
+                <td><code>{{ n.code }}</code></td>
+                <td>{{ n.subject }}</td>
+                <td>{{ n.channel }}</td>
+                <td>{{ n.bodyTemplate }}</td>
+                <td><button class="btn-sm btn-danger" (click)="deleteNotificationTemplate(n.id)">Delete</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No notification templates.</p>
       }
     </section>
   }

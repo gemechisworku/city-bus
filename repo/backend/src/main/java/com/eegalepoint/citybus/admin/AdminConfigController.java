@@ -4,9 +4,11 @@ import com.eegalepoint.citybus.admin.dto.AuditLogResponse;
 import com.eegalepoint.citybus.admin.dto.CleaningRuleResponse;
 import com.eegalepoint.citybus.admin.dto.DictionaryEntryResponse;
 import com.eegalepoint.citybus.admin.dto.FieldMappingResponse;
+import com.eegalepoint.citybus.admin.dto.NotificationTemplateResponse;
 import com.eegalepoint.citybus.admin.dto.RankingConfigResponse;
 import com.eegalepoint.citybus.admin.dto.SaveCleaningRuleRequest;
 import com.eegalepoint.citybus.admin.dto.SaveDictionaryEntryRequest;
+import com.eegalepoint.citybus.admin.dto.SaveNotificationTemplateRequest;
 import com.eegalepoint.citybus.admin.dto.UpdateRankingConfigRequest;
 import com.eegalepoint.citybus.admin.dto.UpdateUserRequest;
 import com.eegalepoint.citybus.admin.dto.UserAdminResponse;
@@ -41,6 +43,32 @@ public class AdminConfigController {
   @GetMapping("/templates")
   public List<FieldMappingResponse> listTemplates() {
     return adminConfigService.listTemplates();
+  }
+
+  // ── Notification templates (in-app / message copy) ──
+
+  @GetMapping("/notification-templates")
+  public List<NotificationTemplateResponse> listNotificationTemplates() {
+    return adminConfigService.listNotificationTemplates();
+  }
+
+  @PostMapping(path = "/notification-templates", consumes = MediaType.APPLICATION_JSON_VALUE)
+  @ResponseStatus(HttpStatus.CREATED)
+  public NotificationTemplateResponse createNotificationTemplate(
+      @Valid @RequestBody SaveNotificationTemplateRequest req) {
+    return adminConfigService.createNotificationTemplate(req);
+  }
+
+  @PutMapping(path = "/notification-templates/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+  public NotificationTemplateResponse updateNotificationTemplate(
+      @PathVariable("id") long id, @Valid @RequestBody SaveNotificationTemplateRequest req) {
+    return adminConfigService.updateNotificationTemplate(id, req);
+  }
+
+  @DeleteMapping("/notification-templates/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deleteNotificationTemplate(@PathVariable("id") long id) {
+    adminConfigService.deleteNotificationTemplate(id);
   }
 
   // ── Ranking config ──

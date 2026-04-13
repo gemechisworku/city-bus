@@ -4,9 +4,11 @@ import com.eegalepoint.citybus.admin.dto.AuditLogResponse;
 import com.eegalepoint.citybus.admin.dto.CleaningRuleResponse;
 import com.eegalepoint.citybus.admin.dto.DictionaryEntryResponse;
 import com.eegalepoint.citybus.admin.dto.FieldMappingResponse;
+import com.eegalepoint.citybus.admin.dto.NotificationTemplateResponse;
 import com.eegalepoint.citybus.admin.dto.RankingConfigResponse;
 import com.eegalepoint.citybus.admin.dto.SaveCleaningRuleRequest;
 import com.eegalepoint.citybus.admin.dto.SaveDictionaryEntryRequest;
+import com.eegalepoint.citybus.admin.dto.SaveNotificationTemplateRequest;
 import com.eegalepoint.citybus.admin.dto.UpdateRankingConfigRequest;
 import com.eegalepoint.citybus.admin.dto.UpdateUserRequest;
 import com.eegalepoint.citybus.admin.dto.UserAdminResponse;
@@ -16,6 +18,8 @@ import com.eegalepoint.citybus.domain.config.CleaningRuleSetEntity;
 import com.eegalepoint.citybus.domain.config.CleaningRuleSetRepository;
 import com.eegalepoint.citybus.domain.config.FieldStandardDictionaryEntity;
 import com.eegalepoint.citybus.domain.config.FieldStandardDictionaryRepository;
+import com.eegalepoint.citybus.domain.config.NotificationTemplateEntity;
+import com.eegalepoint.citybus.domain.config.NotificationTemplateRepository;
 import com.eegalepoint.citybus.domain.search.RankingConfigEntity;
 import com.eegalepoint.citybus.domain.search.RankingConfigRepository;
 import com.eegalepoint.citybus.domain.transit.FieldMappingEntity;
@@ -35,6 +39,7 @@ public class AdminConfigService {
   private final FieldStandardDictionaryRepository dictionaryRepository;
   private final RankingConfigRepository rankingConfigRepository;
   private final FieldMappingRepository fieldMappingRepository;
+  private final NotificationTemplateRepository notificationTemplateRepository;
   private final UserRepository userRepository;
   private final JdbcTemplate jdbcTemplate;
 
@@ -43,12 +48,14 @@ public class AdminConfigService {
       FieldStandardDictionaryRepository dictionaryRepository,
       RankingConfigRepository rankingConfigRepository,
       FieldMappingRepository fieldMappingRepository,
+      NotificationTemplateRepository notificationTemplateRepository,
       UserRepository userRepository,
       JdbcTemplate jdbcTemplate) {
     this.cleaningRuleRepository = cleaningRuleRepository;
     this.dictionaryRepository = dictionaryRepository;
     this.rankingConfigRepository = rankingConfigRepository;
     this.fieldMappingRepository = fieldMappingRepository;
+    this.notificationTemplateRepository = notificationTemplateRepository;
     this.userRepository = userRepository;
     this.jdbcTemplate = jdbcTemplate;
   }
@@ -177,6 +184,58 @@ public class AdminConfigService {
     return fieldMappingRepository.findAll().stream()
         .map(e -> new FieldMappingResponse(e.getId(), e.getTemplateName(), e.getSourceField(), e.getTargetField(), e.getCreatedAt()))
         .toList();
+  }
+
+  // ── Notification templates (messages) ──
+
+  @Transactional(readOnly = true)
+  public List<NotificationTemplateResponse> listNotificationTemplates() {
+    return notificationTemplateRepository.findAllByOrderByCodeAsc().stream()
+        .map(this::toNotificationTemplateResponse)
+        .toList();
+  }
+
+  @Transactional
+  public NotificationTemplateResponse createNotificationTemplate(SaveNotificationTemplateRequest req) {
+    if (notificationTemplateRepository.existsByCode(req.code())) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Notification template code already exists");
+    }
+    NotificationTemplateEntity entity = new NotificationTemplateEntity();
+    applyNotificationTemplateFields(entity, req);
+    return toNotificationTemplateResponse(notificationTemplateRepository.save(entity));
+  }
+
+  @Transactional
+  public NotificationTemplateResponse updateNotificationTemplate(long id, SaveNotificationTemplateRequest req) {
+    NotificationTemplateEntity entity = notificationTemplateRepository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification template not found"));
+    if (!entity.getCode().equals(req.code()) && notificationTemplateRepository.existsByCode(req.code())) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Notification template code already exists");
+    }
+    applyNotificationTemplateFields(entity, req);
+    return toNotificationTemplateResponse(notificationTemplateRepository.save(entity));
+  }
+
+  @Transactional
+  public void deleteNotificationTemplate(long id) {
+    if (!notificationTemplateRepository.existsById(id)) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification template not found");
+    }
+    notificationTemplateRepository.deleteById(id);
+  }
+
+  private void applyNotificationTemplateFields(NotificationTemplateEntity entity, SaveNotificationTemplateRequest req) {
+    entity.setCode(req.code());
+    entity.setSubject(req.subject());
+    entity.setBodyTemplate(req.bodyTemplate());
+    entity.setChannel(req.channel() != null && !req.channel().isBlank() ? req.channel() : "IN_APP");
+    entity.setEnabled(req.enabled());
+  }
+
+  private NotificationTemplateResponse toNotificationTemplateResponse(NotificationTemplateEntity e) {
+    return new NotificationTemplateResponse(
+        e.getId(), e.getCode(), e.getSubject(), e.getBodyTemplate(),
+        e.getChannel(), e.isEnabled(), e.getCreatedAt(), e.getUpdatedAt());
   }
 
   // ── Users ──

@@ -5,6 +5,8 @@ import com.eegalepoint.citybus.domain.workflow.WorkflowDefinitionEntity;
 import com.eegalepoint.citybus.domain.workflow.WorkflowDefinitionRepository;
 import com.eegalepoint.citybus.domain.workflow.WorkflowInstanceEntity;
 import com.eegalepoint.citybus.domain.workflow.WorkflowInstanceRepository;
+import com.eegalepoint.citybus.domain.workflow.WorkflowTaskDependencyEntity;
+import com.eegalepoint.citybus.domain.workflow.WorkflowTaskDependencyRepository;
 import com.eegalepoint.citybus.domain.workflow.WorkflowTaskEntity;
 import com.eegalepoint.citybus.domain.workflow.WorkflowTaskRepository;
 import com.eegalepoint.citybus.repo.UserRepository;
@@ -15,6 +17,7 @@ import com.eegalepoint.citybus.workflow.dto.CreateWorkflowRequest;
 import com.eegalepoint.citybus.workflow.dto.TaskResponse;
 import com.eegalepoint.citybus.workflow.dto.WorkflowInstanceResponse;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,16 +40,19 @@ public class WorkflowService {
   private final WorkflowDefinitionRepository definitionRepository;
   private final WorkflowInstanceRepository instanceRepository;
   private final WorkflowTaskRepository taskRepository;
+  private final WorkflowTaskDependencyRepository taskDependencyRepository;
   private final UserRepository userRepository;
 
   public WorkflowService(
       WorkflowDefinitionRepository definitionRepository,
       WorkflowInstanceRepository instanceRepository,
       WorkflowTaskRepository taskRepository,
+      WorkflowTaskDependencyRepository taskDependencyRepository,
       UserRepository userRepository) {
     this.definitionRepository = definitionRepository;
     this.instanceRepository = instanceRepository;
     this.taskRepository = taskRepository;
+    this.taskDependencyRepository = taskDependencyRepository;
     this.userRepository = userRepository;
   }
 
@@ -93,8 +99,26 @@ public class WorkflowService {
       assignee = userRepository.findById(req.assignedToUserId())
           .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assigned user not found"));
     }
+    LinkedHashSet<Long> predIds = new LinkedHashSet<>();
+    if (req.predecessorTaskId() != null) {
+      predIds.add(req.predecessorTaskId());
+    }
+    if (req.predecessorTaskIds() != null) {
+      predIds.addAll(req.predecessorTaskIds());
+    }
+    for (Long predId : predIds) {
+      WorkflowTaskEntity pred = taskRepository.findById(predId)
+          .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Predecessor task not found"));
+      if (!pred.getInstance().getId().equals(instance.getId())) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Predecessor task must belong to the same workflow instance");
+      }
+    }
     WorkflowTaskEntity task = taskRepository.save(
         new WorkflowTaskEntity(instance, req.title(), req.description(), assignee));
+    for (Long predId : predIds) {
+      WorkflowTaskEntity pred = taskRepository.findById(predId).orElseThrow();
+      taskDependencyRepository.save(new WorkflowTaskDependencyEntity(task, pred));
+    }
     return toTaskResponse(task);
   }
 
@@ -142,6 +166,12 @@ public class WorkflowService {
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
     if (!TASK_PENDING.equals(task.getStatus())) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "Task already decided");
+    }
+    for (WorkflowTaskDependencyEntity dep : taskDependencyRepository.findByTask_IdOrderByDependsOn_IdAsc(taskId)) {
+      WorkflowTaskEntity pred = dep.getDependsOn();
+      if (!TASK_APPROVED.equals(pred.getStatus())) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "All predecessor tasks must be approved first");
+      }
     }
     task.setStatus(targetStatus);
     task.setDecidedBy(user);
@@ -214,9 +244,14 @@ public class WorkflowService {
   }
 
   private TaskResponse toTaskResponse(WorkflowTaskEntity t) {
+    List<Long> preds =
+        taskDependencyRepository.findByTask_IdOrderByDependsOn_IdAsc(t.getId()).stream()
+            .map(d -> d.getDependsOn().getId())
+            .toList();
     return new TaskResponse(
         t.getId(),
         t.getInstance().getId(),
+        preds,
         t.getTitle(),
         t.getDescription(),
         t.getStatus(),

@@ -2,6 +2,7 @@ package com.eegalepoint.citybus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +44,7 @@ class WorkflowIT {
   @BeforeEach
   void cleanup() {
     jdbcTemplate.update("DELETE FROM workflow_escalations");
+    jdbcTemplate.update("DELETE FROM workflow_task_dependencies");
     jdbcTemplate.update("DELETE FROM workflow_tasks");
     jdbcTemplate.update("DELETE FROM workflow_instances");
 
@@ -163,6 +165,75 @@ class WorkflowIT {
   }
 
   @Test
+  void predecessorBlocksUntilApproved() {
+    String token = loginToken("dispatcher1", "ChangeMe123!");
+    HttpHeaders headers = bearerHeaders(token);
+
+    long instanceId = createWorkflow(headers);
+    long taskA = createTask(headers, instanceId, "Step A");
+    long taskB = createTask(headers, instanceId, "Step B", taskA);
+
+    ResponseEntity<String> blocked = restTemplate.exchange(
+        "/api/v1/tasks/" + taskB + "/approve", HttpMethod.POST,
+        new HttpEntity<>(Map.of("note", "skip A"), headers), String.class);
+    assertThat(blocked.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+    restTemplate.exchange(
+        "/api/v1/tasks/" + taskA + "/approve", HttpMethod.POST,
+        new HttpEntity<>(Map.of("note", "ok"), headers), Map.class);
+
+    ResponseEntity<Map> ok = restTemplate.exchange(
+        "/api/v1/tasks/" + taskB + "/approve", HttpMethod.POST,
+        new HttpEntity<>(Map.of("note", "after A"), headers), Map.class);
+    assertThat(ok.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(ok.getBody()).containsEntry("status", "APPROVED");
+  }
+
+  @Test
+  void dualPredecessorsBlockUntilBothApproved() {
+    String token = loginToken("dispatcher1", "ChangeMe123!");
+    HttpHeaders headers = bearerHeaders(token);
+
+    long instanceId = createWorkflow(headers);
+    long taskA = createTask(headers, instanceId, "Branch A");
+    long taskB = createTask(headers, instanceId, "Branch B");
+    long taskJoin = createTask(headers, instanceId, "Join", List.of(taskA, taskB));
+
+    ResponseEntity<String> blocked1 =
+        restTemplate.exchange(
+            "/api/v1/tasks/" + taskJoin + "/approve",
+            HttpMethod.POST,
+            new HttpEntity<>(Map.of("note", "early"), headers),
+            String.class);
+    assertThat(blocked1.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+    restTemplate.exchange(
+        "/api/v1/tasks/" + taskA + "/approve", HttpMethod.POST,
+        new HttpEntity<>(Map.of("note", "ok A"), headers), Map.class);
+
+    ResponseEntity<String> blocked2 =
+        restTemplate.exchange(
+            "/api/v1/tasks/" + taskJoin + "/approve",
+            HttpMethod.POST,
+            new HttpEntity<>(headers),
+            String.class);
+    assertThat(blocked2.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+    restTemplate.exchange(
+        "/api/v1/tasks/" + taskB + "/approve", HttpMethod.POST,
+        new HttpEntity<>(Map.of("note", "ok B"), headers), Map.class);
+
+    ResponseEntity<Map> ok =
+        restTemplate.exchange(
+            "/api/v1/tasks/" + taskJoin + "/approve",
+            HttpMethod.POST,
+            new HttpEntity<>(Map.of("note", "ok join"), headers),
+            Map.class);
+    assertThat(ok.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(ok.getBody()).containsEntry("status", "APPROVED");
+  }
+
+  @Test
   void batchApprove() {
     String token = loginToken("dispatcher1", "ChangeMe123!");
     HttpHeaders headers = bearerHeaders(token);
@@ -217,7 +288,21 @@ class WorkflowIT {
   }
 
   private long createTask(HttpHeaders headers, long instanceId, String title) {
-    Map<String, Object> body = Map.of("instanceId", instanceId, "title", title);
+    return createTask(headers, instanceId, title, (List<Long>) null);
+  }
+
+  private long createTask(HttpHeaders headers, long instanceId, String title, Long predecessorTaskId) {
+    return createTask(
+        headers, instanceId, title, predecessorTaskId == null ? null : List.of(predecessorTaskId));
+  }
+
+  private long createTask(HttpHeaders headers, long instanceId, String title, List<Long> predecessorTaskIds) {
+    Map<String, Object> body = new HashMap<>();
+    body.put("instanceId", instanceId);
+    body.put("title", title);
+    if (predecessorTaskIds != null && !predecessorTaskIds.isEmpty()) {
+      body.put("predecessorTaskIds", predecessorTaskIds);
+    }
     ResponseEntity<Map> res = restTemplate.exchange(
         "/api/v1/tasks", HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
     return ((Number) res.getBody().get("id")).longValue();

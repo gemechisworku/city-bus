@@ -32,6 +32,12 @@ spring.lifecycle:
   timeout-per-shutdown-phase: 30s
 
 management:
+  metrics:
+    distribution:
+      percentiles:
+        "[http.server.requests]": 0.95
+      percentiles-histogram:
+        "[http.server.requests]": true
   endpoints:
     web:
       exposure:
@@ -47,6 +53,7 @@ management:
       enabled: true
 
 app:
+  demo-endpoints-enabled: false
   jwt:
     secret: ${APP_JWT_SECRET}
     expiration-seconds: ${APP_JWT_EXPIRATION_SECONDS:3600}

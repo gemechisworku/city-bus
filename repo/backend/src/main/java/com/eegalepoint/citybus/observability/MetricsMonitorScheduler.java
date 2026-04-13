@@ -2,6 +2,11 @@ package com.eegalepoint.citybus.observability;
 
 import com.eegalepoint.citybus.domain.operations.SystemAlertEntity;
 import com.eegalepoint.citybus.domain.operations.SystemAlertRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.distribution.ValueAtPercentile;
+import io.micrometer.core.instrument.search.Search;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,12 +22,15 @@ public class MetricsMonitorScheduler {
   private static final double P95_THRESHOLD_MS = 500.0;
 
   private final JdbcTemplate jdbcTemplate;
+  private final MeterRegistry meterRegistry;
   private final SystemAlertRepository alertRepository;
 
   public MetricsMonitorScheduler(
       JdbcTemplate jdbcTemplate,
+      MeterRegistry meterRegistry,
       SystemAlertRepository alertRepository) {
     this.jdbcTemplate = jdbcTemplate;
+    this.meterRegistry = meterRegistry;
     this.alertRepository = alertRepository;
   }
 
@@ -50,21 +58,22 @@ public class MetricsMonitorScheduler {
   @Transactional
   public void checkApiResponseTimes() {
     try {
-      Double avgMs = jdbcTemplate.queryForObject(
-          """
-          SELECT EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000
-          FROM diagnostic_reports
-          WHERE status = 'COMPLETED'
-          ORDER BY started_at DESC LIMIT 1
-          """, Double.class);
+      double maxP95Ms = -1.0;
+      for (Timer timer : Search.in(meterRegistry).name("http.server.requests").timers()) {
+        for (ValueAtPercentile v : timer.takeSnapshot().percentileValues()) {
+          if (Math.abs(v.percentile() - 0.95) < 1e-4) {
+            maxP95Ms = Math.max(maxP95Ms, v.value(TimeUnit.MILLISECONDS));
+          }
+        }
+      }
 
-      if (avgMs != null && avgMs > P95_THRESHOLD_MS) {
-        log.warn("API response time alert: estimated P95 {}ms (threshold: {}ms)",
-            String.format("%.0f", avgMs), P95_THRESHOLD_MS);
+      if (maxP95Ms >= 0 && maxP95Ms > P95_THRESHOLD_MS) {
+        log.warn("API response time alert: http.server.requests P95 {}ms (threshold: {}ms)",
+            String.format("%.0f", maxP95Ms), P95_THRESHOLD_MS);
         alertRepository.save(new SystemAlertEntity(
             "WARN", "api-latency-monitor",
             "API P95 response time exceeds " + (int) P95_THRESHOLD_MS + "ms",
-            "Estimated P95: " + String.format("%.0f", avgMs) + "ms"));
+            "Micrometer http.server.requests P95: " + String.format("%.0f", maxP95Ms) + "ms"));
       }
     } catch (Exception ex) {
       log.debug("P95 check skipped (no data or error): {}", ex.getMessage());

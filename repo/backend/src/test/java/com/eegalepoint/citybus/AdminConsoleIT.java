@@ -2,6 +2,7 @@ package com.eegalepoint.citybus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +44,7 @@ class AdminConsoleIT {
     jdbcTemplate.update("DELETE FROM cleaning_audit_logs");
     jdbcTemplate.update("DELETE FROM cleaning_rule_sets");
     jdbcTemplate.update("DELETE FROM field_standard_dictionaries");
+    jdbcTemplate.update("DELETE FROM notification_templates");
   }
 
   @Test
@@ -52,6 +54,8 @@ class AdminConsoleIT {
     assertThat(restTemplate.getForEntity("/api/v1/admin/dictionaries", String.class)
         .getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     assertThat(restTemplate.getForEntity("/api/v1/admin/ranking-config", String.class)
+        .getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    assertThat(restTemplate.getForEntity("/api/v1/admin/notification-templates", String.class)
         .getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
   }
 
@@ -169,6 +173,47 @@ class AdminConsoleIT {
         new HttpEntity<>(body, headers), Map.class);
     assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(((Number) updated.getBody().get("maxResults")).intValue()).isEqualTo(25);
+  }
+
+  @Test
+  void notificationTemplateCrud() {
+    String token = loginToken("admin", "ChangeMe123!");
+    HttpHeaders headers = bearerHeaders(token);
+
+    Map<String, Object> body = new HashMap<>();
+    body.put("code", "TEST_ALERT");
+    body.put("subject", "Test subject");
+    body.put("bodyTemplate", "Hello {{name}}");
+    body.put("channel", "IN_APP");
+    body.put("enabled", true);
+
+    ResponseEntity<Map> created = restTemplate.exchange(
+        "/api/v1/admin/notification-templates", HttpMethod.POST,
+        new HttpEntity<>(body, headers), Map.class);
+    assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    assertThat(created.getBody()).containsEntry("code", "TEST_ALERT");
+    long id = ((Number) created.getBody().get("id")).longValue();
+
+    ResponseEntity<List> list = restTemplate.exchange(
+        "/api/v1/admin/notification-templates", HttpMethod.GET,
+        new HttpEntity<>(headers), List.class);
+    assertThat(list.getBody()).isNotEmpty();
+
+    Map<String, Object> update = new HashMap<>();
+    update.put("code", "TEST_ALERT");
+    update.put("subject", "Updated");
+    update.put("bodyTemplate", "Hi {{name}}");
+    update.put("channel", "IN_APP");
+    update.put("enabled", true);
+    ResponseEntity<Map> updated = restTemplate.exchange(
+        "/api/v1/admin/notification-templates/" + id, HttpMethod.PUT,
+        new HttpEntity<>(update, headers), Map.class);
+    assertThat(updated.getBody()).containsEntry("subject", "Updated");
+
+    ResponseEntity<Void> deleted = restTemplate.exchange(
+        "/api/v1/admin/notification-templates/" + id, HttpMethod.DELETE,
+        new HttpEntity<>(headers), Void.class);
+    assertThat(deleted.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
   }
 
   @Test
