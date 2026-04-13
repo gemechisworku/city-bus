@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+## Workspace edit scope
+
+- **Project work:** Only create, modify, or delete files under the `repo/` directory at the repository root. That path is where the application, services, docs, scripts, and other project files live.
+- **Do not** change files outside `repo/` for implementation tasks, refactors, fixes, or new features—including the repository root `README.md`, loose files at the workspace root, or other folders—unless the user explicitly asks for a change in a specific out-of-repo path.
+- **Exception:** Files under `.cursor/` (rules, MCP-related workspace config, etc.) may be edited when the task is to configure Cursor or agent behavior; those files are not part of the `repo/` tree by convention.
