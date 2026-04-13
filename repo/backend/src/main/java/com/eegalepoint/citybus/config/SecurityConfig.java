@@ -34,8 +34,10 @@ public class SecurityConfig {
                     .accessDeniedHandler(jsonAuthHandlers.accessDeniedHandler()))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/actuator/**", "/error")
+                auth.requestMatchers("/actuator/health", "/actuator/info", "/error")
                     .permitAll()
+                    .requestMatchers("/actuator/**")
+                    .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
                     .permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**")

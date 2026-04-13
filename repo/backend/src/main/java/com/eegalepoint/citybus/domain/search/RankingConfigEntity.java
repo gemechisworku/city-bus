@@ -40,23 +40,60 @@ public class RankingConfigEntity {
 
   protected RankingConfigEntity() {}
 
+  public Long getId() {
+    return id;
+  }
+
+  public String getConfigKey() {
+    return configKey;
+  }
+
   public BigDecimal getRouteWeight() {
     return routeWeight;
+  }
+
+  public void setRouteWeight(BigDecimal routeWeight) {
+    this.routeWeight = routeWeight;
+    this.updatedAt = Instant.now();
   }
 
   public BigDecimal getStopWeight() {
     return stopWeight;
   }
 
+  public void setStopWeight(BigDecimal stopWeight) {
+    this.stopWeight = stopWeight;
+    this.updatedAt = Instant.now();
+  }
+
   public BigDecimal getPopularityWeight() {
     return popularityWeight;
+  }
+
+  public void setPopularityWeight(BigDecimal popularityWeight) {
+    this.popularityWeight = popularityWeight;
+    this.updatedAt = Instant.now();
   }
 
   public int getMaxSuggestions() {
     return maxSuggestions;
   }
 
+  public void setMaxSuggestions(int maxSuggestions) {
+    this.maxSuggestions = maxSuggestions;
+    this.updatedAt = Instant.now();
+  }
+
   public int getMaxResults() {
     return maxResults;
+  }
+
+  public void setMaxResults(int maxResults) {
+    this.maxResults = maxResults;
+    this.updatedAt = Instant.now();
+  }
+
+  public Instant getUpdatedAt() {
+    return updatedAt;
   }
 }

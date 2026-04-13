@@ -12,6 +12,7 @@ import com.eegalepoint.citybus.domain.transit.StopEntity;
 import com.eegalepoint.citybus.domain.transit.StopRepository;
 import com.eegalepoint.citybus.domain.transit.StopVersionEntity;
 import com.eegalepoint.citybus.domain.transit.StopVersionRepository;
+import com.eegalepoint.citybus.search.PinyinService;
 import com.eegalepoint.citybus.transit.dto.CanonicalImportRequest;
 import com.eegalepoint.citybus.transit.dto.RouteImportDto;
 import com.eegalepoint.citybus.transit.dto.ScheduleImportDto;
@@ -32,6 +33,8 @@ public class CanonicalImportTransactionalService {
   private final StopVersionRepository stopVersionRepository;
   private final RouteStopRepository routeStopRepository;
   private final ScheduleRepository scheduleRepository;
+  private final DataCleaningService dataCleaningService;
+  private final PinyinService pinyinService;
 
   public CanonicalImportTransactionalService(
       RouteRepository routeRepository,
@@ -39,13 +42,17 @@ public class CanonicalImportTransactionalService {
       StopRepository stopRepository,
       StopVersionRepository stopVersionRepository,
       RouteStopRepository routeStopRepository,
-      ScheduleRepository scheduleRepository) {
+      ScheduleRepository scheduleRepository,
+      DataCleaningService dataCleaningService,
+      PinyinService pinyinService) {
     this.routeRepository = routeRepository;
     this.routeVersionRepository = routeVersionRepository;
     this.stopRepository = stopRepository;
     this.stopVersionRepository = stopVersionRepository;
     this.routeStopRepository = routeStopRepository;
     this.scheduleRepository = scheduleRepository;
+    this.dataCleaningService = dataCleaningService;
+    this.pinyinService = pinyinService;
   }
 
   @Transactional
@@ -63,9 +70,12 @@ public class CanonicalImportTransactionalService {
             .findByCode(dto.routeCode())
             .orElseGet(() -> routeRepository.save(new RouteEntity(dto.routeCode())));
     int nextRv = routeVersionRepository.findMaxVersionNumber(route.getId()) + 1;
-    RouteVersionEntity rv =
-        routeVersionRepository.save(
-            new RouteVersionEntity(route, nextRv, dto.name(), dto.effectiveFrom()));
+    String cleanedRouteName = dataCleaningService.clean("route_name", dto.name());
+    if (cleanedRouteName == null) cleanedRouteName = dto.name();
+    RouteVersionEntity rv = new RouteVersionEntity(route, nextRv, cleanedRouteName, dto.effectiveFrom());
+    rv.setSearchPinyin(pinyinService.toPinyin(cleanedRouteName));
+    rv.setSearchInitials(pinyinService.toInitialsSimple(cleanedRouteName));
+    routeVersionRepository.save(rv);
     int rows = 2;
 
     List<StopImportDto> ordered =
@@ -83,15 +93,14 @@ public class CanonicalImportTransactionalService {
               .findByCode(stopDto.stopCode())
               .orElseGet(() -> stopRepository.save(new StopEntity(stopDto.stopCode())));
       int nextSv = stopVersionRepository.findMaxVersionNumber(stop.getId()) + 1;
-      StopVersionEntity sv =
-          stopVersionRepository.save(
-              new StopVersionEntity(
-                  stop,
-                  nextSv,
-                  stopDto.name(),
-                  stopDto.latitude(),
-                  stopDto.longitude(),
-                  stopDto.effectiveFrom()));
+      String cleanedStopName = dataCleaningService.clean("stop_name", stopDto.name());
+      if (cleanedStopName == null) cleanedStopName = stopDto.name();
+      StopVersionEntity sv = new StopVersionEntity(
+          stop, nextSv, cleanedStopName,
+          stopDto.latitude(), stopDto.longitude(), stopDto.effectiveFrom());
+      sv.setSearchPinyin(pinyinService.toPinyin(cleanedStopName));
+      sv.setSearchInitials(pinyinService.toInitialsSimple(cleanedStopName));
+      stopVersionRepository.save(sv);
       routeStopRepository.save(new RouteStopEntity(rv, sv, stopDto.sequence()));
       rows += 3;
     }

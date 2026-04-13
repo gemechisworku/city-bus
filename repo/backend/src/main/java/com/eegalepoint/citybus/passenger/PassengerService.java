@@ -7,6 +7,8 @@ import com.eegalepoint.citybus.domain.messaging.MessageQueueRepository;
 import com.eegalepoint.citybus.domain.messaging.MessageRepository;
 import com.eegalepoint.citybus.domain.passenger.CheckinEntity;
 import com.eegalepoint.citybus.domain.passenger.CheckinRepository;
+import com.eegalepoint.citybus.domain.passenger.DoNotDisturbWindowEntity;
+import com.eegalepoint.citybus.domain.passenger.DoNotDisturbWindowRepository;
 import com.eegalepoint.citybus.domain.passenger.ReminderPreferenceEntity;
 import com.eegalepoint.citybus.domain.passenger.ReminderPreferenceRepository;
 import com.eegalepoint.citybus.domain.passenger.ReservationEntity;
@@ -19,7 +21,9 @@ import com.eegalepoint.citybus.domain.transit.StopVersionEntity;
 import com.eegalepoint.citybus.domain.transit.StopVersionRepository;
 import com.eegalepoint.citybus.passenger.dto.CheckinResponse;
 import com.eegalepoint.citybus.passenger.dto.CreateCheckinRequest;
+import com.eegalepoint.citybus.passenger.dto.CreateDndWindowRequest;
 import com.eegalepoint.citybus.passenger.dto.CreateReservationRequest;
+import com.eegalepoint.citybus.passenger.dto.DndWindowResponse;
 import com.eegalepoint.citybus.passenger.dto.ReminderPreferenceResponse;
 import com.eegalepoint.citybus.passenger.dto.ReservationResponse;
 import com.eegalepoint.citybus.passenger.dto.UpdateReminderPreferenceRequest;
@@ -38,6 +42,7 @@ public class PassengerService {
   private final ReservationRepository reservationRepository;
   private final CheckinRepository checkinRepository;
   private final ReminderPreferenceRepository reminderPreferenceRepository;
+  private final DoNotDisturbWindowRepository dndWindowRepository;
   private final ScheduleRepository scheduleRepository;
   private final StopRepository stopRepository;
   private final StopVersionRepository stopVersionRepository;
@@ -49,6 +54,7 @@ public class PassengerService {
       ReservationRepository reservationRepository,
       CheckinRepository checkinRepository,
       ReminderPreferenceRepository reminderPreferenceRepository,
+      DoNotDisturbWindowRepository dndWindowRepository,
       ScheduleRepository scheduleRepository,
       StopRepository stopRepository,
       StopVersionRepository stopVersionRepository,
@@ -58,6 +64,7 @@ public class PassengerService {
     this.reservationRepository = reservationRepository;
     this.checkinRepository = checkinRepository;
     this.reminderPreferenceRepository = reminderPreferenceRepository;
+    this.dndWindowRepository = dndWindowRepository;
     this.scheduleRepository = scheduleRepository;
     this.stopRepository = stopRepository;
     this.stopVersionRepository = stopVersionRepository;
@@ -162,7 +169,7 @@ public class PassengerService {
     UserEntity user = currentUser();
     return reminderPreferenceRepository.findByUser_Id(user.getId())
         .map(p -> new ReminderPreferenceResponse(p.isEnabled(), p.getMinutesBefore(), p.getChannel()))
-        .orElse(new ReminderPreferenceResponse(true, 15, "IN_APP"));
+        .orElse(new ReminderPreferenceResponse(true, 10, "IN_APP"));
   }
 
   @Transactional
@@ -175,6 +182,36 @@ public class PassengerService {
     pref.setChannel(req.channel());
     reminderPreferenceRepository.save(pref);
     return new ReminderPreferenceResponse(pref.isEnabled(), pref.getMinutesBefore(), pref.getChannel());
+  }
+
+  @Transactional(readOnly = true)
+  public List<DndWindowResponse> listDndWindows() {
+    UserEntity user = currentUser();
+    return dndWindowRepository.findByUser_Id(user.getId()).stream()
+        .map(w -> new DndWindowResponse(
+            w.getId(), w.getDayOfWeek(), w.getStartTime(), w.getEndTime(), w.getCreatedAt()))
+        .toList();
+  }
+
+  @Transactional
+  public DndWindowResponse createDndWindow(CreateDndWindowRequest req) {
+    UserEntity user = currentUser();
+    DoNotDisturbWindowEntity window = dndWindowRepository.save(
+        new DoNotDisturbWindowEntity(user, req.dayOfWeek(), req.startTime(), req.endTime()));
+    return new DndWindowResponse(
+        window.getId(), window.getDayOfWeek(),
+        window.getStartTime(), window.getEndTime(), window.getCreatedAt());
+  }
+
+  @Transactional
+  public void deleteDndWindow(long id) {
+    UserEntity user = currentUser();
+    DoNotDisturbWindowEntity window = dndWindowRepository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "DND window not found"));
+    if (!window.getUser().getId().equals(user.getId())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your DND window");
+    }
+    dndWindowRepository.delete(window);
   }
 
   private UserEntity currentUser() {

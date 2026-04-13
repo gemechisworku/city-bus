@@ -6,7 +6,12 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:citybus}
     password: ${SPRING_DATASOURCE_PASSWORD:citybus}
     hikari:
-      maximum-pool-size: 10
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:10}
+      minimum-idle: ${HIKARI_MIN_IDLE:2}
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      leak-detection-threshold: 30000
   jpa:
     open-in-view: false
     hibernate:
@@ -21,20 +26,32 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring.lifecycle:
+  timeout-per-shutdown-phase: 30s
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,flyway
   endpoint:
     health:
-      show-details: never
+      show-details: when_authorized
+      show-components: when_authorized
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
 
 app:
   jwt:
-    secret: ${APP_JWT_SECRET:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+    secret: ${APP_JWT_SECRET}
     expiration-seconds: ${APP_JWT_EXPIRATION_SECONDS:3600}
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:*}
 
 logging:
   level:

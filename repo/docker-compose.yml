@@ -25,13 +25,20 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-citybus}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-citybus}
       SERVER_PORT: 8080
-      APP_JWT_SECRET: ${APP_JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:?Set APP_JWT_SECRET in .env (min 64 hex chars)}
       APP_JWT_EXPIRATION_SECONDS: ${APP_JWT_EXPIRATION_SECONDS:-3600}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 30s
 
   frontend:
     build:
@@ -40,7 +47,8 @@ services:
     ports:
       - "${FRONTEND_PORT:-80}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:

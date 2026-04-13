@@ -205,7 +205,7 @@ class PassengerMessagingIT {
             Map.class);
     assertThat(get.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(get.getBody()).containsEntry("enabled", true);
-    assertThat(get.getBody()).containsEntry("minutesBefore", 15);
+    assertThat(get.getBody()).containsEntry("minutesBefore", 10);
     assertThat(get.getBody()).containsEntry("channel", "IN_APP");
   }
 

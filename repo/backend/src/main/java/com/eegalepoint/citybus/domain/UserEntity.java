@@ -62,6 +62,15 @@ public class UserEntity {
     return enabled;
   }
 
+  public void setEnabled(boolean enabled) {
+    this.enabled = enabled;
+    this.updatedAt = Instant.now();
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
   public Set<RoleEntity> getRoles() {
     return roles;
   }

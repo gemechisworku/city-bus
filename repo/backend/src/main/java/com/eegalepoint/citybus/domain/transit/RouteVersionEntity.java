@@ -33,6 +33,12 @@ public class RouteVersionEntity {
   @Column(name = "effective_from")
   private LocalDate effectiveFrom;
 
+  @Column(name = "search_pinyin", length = 512)
+  private String searchPinyin;
+
+  @Column(name = "search_initials", length = 128)
+  private String searchInitials;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt = Instant.now();
 
@@ -63,6 +69,22 @@ public class RouteVersionEntity {
 
   public LocalDate getEffectiveFrom() {
     return effectiveFrom;
+  }
+
+  public String getSearchPinyin() {
+    return searchPinyin;
+  }
+
+  public void setSearchPinyin(String searchPinyin) {
+    this.searchPinyin = searchPinyin;
+  }
+
+  public String getSearchInitials() {
+    return searchInitials;
+  }
+
+  public void setSearchInitials(String searchInitials) {
+    this.searchInitials = searchInitials;
   }
 
   public Instant getCreatedAt() {

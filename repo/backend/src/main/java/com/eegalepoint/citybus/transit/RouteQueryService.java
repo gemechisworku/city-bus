@@ -74,6 +74,7 @@ public class RouteQueryService {
                   var s = sv.getStop();
                   return new RouteDetailResponse.StopOnRouteResponse(
                       rs.getStopSequence(),
+                      s.getId(),
                       s.getCode(),
                       sv.getName(),
                       sv.getLatitude(),
@@ -85,7 +86,7 @@ public class RouteQueryService {
         scheduleRepository.findByRouteVersionIdOrderByDepartureTimeAsc(rv.getId());
     List<RouteDetailResponse.ScheduleResponse> schedules =
         schedEntities.stream()
-            .map(s -> new RouteDetailResponse.ScheduleResponse(s.getTripCode(), s.getDepartureTime()))
+            .map(s -> new RouteDetailResponse.ScheduleResponse(s.getId(), s.getTripCode(), s.getDepartureTime()))
             .toList();
     return new RouteDetailResponse(
         route.getId(),

@@ -22,6 +22,8 @@ Docker-first **Angular + Spring Boot + PostgreSQL** stack. Treat **this director
 | `docker-compose.yml` | Postgres + API + nginx UI |
 | `run_test.sh` | Backend `mvnw verify` + frontend `npm run test:ci` (expects JDK + Node on the host) |
 | `scripts/mvn-verify-docker.ps1` / `scripts/mvn-verify-docker.sh` | Backend `mvnw verify` inside **eclipse-temurin:17-jdk** with a **persistent Maven cache** volume and Docker socket (no JDK on the host) |
+| `scripts/backup-db.sh` / `scripts/backup-db.ps1` | Backup PostgreSQL from running Compose stack |
+| `scripts/restore-db.sh` / `scripts/restore-db.ps1` | Restore PostgreSQL from a backup file |
 
 ## Prerequisites
 
@@ -96,11 +98,31 @@ chmod +x scripts/smoke-compose.sh
 
 ## Implementation status
 
-**Completed:** Phases **0–4** (through search, ranking, and stop detail API).
+**Completed:** Phases **0–9** (auth, transit, search, passenger, workflow, admin, observability, backup/ops).
 
-**Next:** **Phase 5** — passenger reservation, check-in, reminders, message center.
+**Next:** **Phase 10** — final QA and rejection-proofing.
 
 Details: [`docs/implementation-status.md`](docs/implementation-status.md).
+
+## Backup and restore
+
+With the Compose stack running (`docker compose up -d`):
+
+```powershell
+# Backup (creates backups/citybus-backup-<timestamp>.sql)
+.\scripts\backup-db.ps1
+
+# Restore
+.\scripts\restore-db.ps1 -BackupFile .\backups\citybus-backup-20260413-120000.sql
+```
+
+```bash
+# Backup (creates backups/citybus-backup-<timestamp>.sql.gz)
+./scripts/backup-db.sh
+
+# Restore
+./scripts/restore-db.sh ./backups/citybus-backup-20260413-120000.sql.gz
+```
 
 ## Monorepo note
 

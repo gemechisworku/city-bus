@@ -11,5 +11,78 @@
       <button type="button" (click)="logout()">Log out</button>
     </nav>
   </header>
-  <p>Dispatcher workspace (task inbox and workflows arrive in later phases).</p>
+
+  <div class="tabs">
+    <button [class.active]="tab === 'workflows'" (click)="tab = 'workflows'">Workflows</button>
+    <button [class.active]="tab === 'tasks'" (click)="tab = 'tasks'">Task inbox</button>
+  </div>
+
+  <!-- WORKFLOWS -->
+  @if (tab === 'workflows') {
+    <section class="section">
+      <h2>Workflow instances</h2>
+      <div class="input-row">
+        <input type="number" placeholder="Definition ID (1=RouteChange, 2=ScheduleChange, 3=Complaint)" [(ngModel)]="wfDefinitionId" />
+        <input placeholder="Title" [(ngModel)]="wfTitle" />
+        <button (click)="createWorkflow()">Create</button>
+      </div>
+      @if (workflows.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Definition</th><th>Title</th><th>Status</th><th>Created</th></tr></thead>
+          <tbody>
+            @for (w of workflows; track w.id) {
+              <tr>
+                <td>{{ w.id }}</td>
+                <td>{{ w.definitionName }}</td>
+                <td>{{ w.title }}</td>
+                <td><span class="badge" [attr.data-status]="w.status">{{ w.status }}</span></td>
+                <td>{{ w.createdAt }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No workflow instances.</p>
+      }
+    </section>
+  }
+
+  <!-- TASKS -->
+  @if (tab === 'tasks') {
+    <section class="section">
+      <h2>Task inbox</h2>
+      <div class="filter-row">
+        <label>
+          <input type="radio" name="filter" value="PENDING" [(ngModel)]="taskFilter" (ngModelChange)="loadTasks()" /> Pending only
+        </label>
+        <label>
+          <input type="radio" name="filter" value="ALL" [(ngModel)]="taskFilter" (ngModelChange)="loadTasks()" /> All
+        </label>
+      </div>
+      @if (tasks.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Workflow</th><th>Name</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            @for (t of tasks; track t.id) {
+              <tr>
+                <td>{{ t.id }}</td>
+                <td>{{ t.workflowInstanceId }}</td>
+                <td>{{ t.taskName }}</td>
+                <td><span class="badge" [attr.data-status]="t.status">{{ t.status }}</span></td>
+                <td>
+                  @if (t.status === 'PENDING') {
+                    <button class="btn-sm btn-approve" (click)="decideTask(t.id, 'approve')">Approve</button>
+                    <button class="btn-sm btn-danger" (click)="decideTask(t.id, 'reject')">Reject</button>
+                    <button class="btn-sm" (click)="decideTask(t.id, 'return')">Return</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No tasks found.</p>
+      }
+    </section>
+  }
 </div>

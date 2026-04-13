@@ -27,6 +27,12 @@ public class WorkflowDefinitionEntity {
   @Column(nullable = false)
   private boolean enabled = true;
 
+  @Column(name = "approval_mode", nullable = false, length = 32)
+  private String approvalMode = "ALL";
+
+  @Column(name = "required_approvals", nullable = false)
+  private int requiredApprovals = 1;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt = Instant.now();
 
@@ -50,6 +56,22 @@ public class WorkflowDefinitionEntity {
 
   public boolean isEnabled() {
     return enabled;
+  }
+
+  public String getApprovalMode() {
+    return approvalMode;
+  }
+
+  public void setApprovalMode(String approvalMode) {
+    this.approvalMode = approvalMode;
+  }
+
+  public int getRequiredApprovals() {
+    return requiredApprovals;
+  }
+
+  public void setRequiredApprovals(int requiredApprovals) {
+    this.requiredApprovals = requiredApprovals;
   }
 
   public Instant getCreatedAt() {

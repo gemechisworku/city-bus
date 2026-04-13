@@ -8,7 +8,9 @@ import com.eegalepoint.citybus.search.dto.SearchHitDto;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,7 +26,8 @@ public class SearchService {
   public static final String SCOPE_SUGGESTIONS = "SUGGESTIONS";
   public static final String SCOPE_RESULTS = "RESULTS";
 
-  private static final Pattern QUERY_SAFE = Pattern.compile("^[a-zA-Z0-9\\s\\-]{2,128}$");
+  private static final Pattern QUERY_SAFE =
+      Pattern.compile("^[\\p{L}\\p{N}\\s\\-]{2,128}$", Pattern.UNICODE_CHARACTER_CLASS);
 
   private static final String ROUTE_SQL =
       """
@@ -38,6 +41,7 @@ public class SearchService {
           LIMIT 1
       ) rv ON TRUE
       WHERE r.code ILIKE ? OR rv.name ILIKE ?
+         OR rv.search_pinyin ILIKE ? OR rv.search_initials ILIKE ?
       LIMIT 200
       """;
 
@@ -55,20 +59,24 @@ public class SearchService {
       ) sv ON TRUE
       LEFT JOIN stop_popularity_metrics m ON m.stop_id = s.id
       WHERE s.code ILIKE ? OR sv.name ILIKE ?
+         OR sv.search_pinyin ILIKE ? OR sv.search_initials ILIKE ?
       LIMIT 200
       """;
 
   private final JdbcTemplate jdbcTemplate;
   private final RankingConfigRepository rankingConfigRepository;
   private final SearchEventRepository searchEventRepository;
+  private final PinyinService pinyinService;
 
   public SearchService(
       JdbcTemplate jdbcTemplate,
       RankingConfigRepository rankingConfigRepository,
-      SearchEventRepository searchEventRepository) {
+      SearchEventRepository searchEventRepository,
+      PinyinService pinyinService) {
     this.jdbcTemplate = jdbcTemplate;
     this.rankingConfigRepository = rankingConfigRepository;
     this.searchEventRepository = searchEventRepository;
+    this.pinyinService = pinyinService;
   }
 
   @Transactional
@@ -125,8 +133,10 @@ public class SearchService {
     BigDecimal sw = cfg.getStopWeight();
     BigDecimal pw = cfg.getPopularityWeight();
 
-    for (var row : jdbcTemplate.queryForList(ROUTE_SQL, likePattern, likePattern)) {
+    Set<Long> seenRoutes = new LinkedHashSet<>();
+    for (var row : jdbcTemplate.queryForList(ROUTE_SQL, likePattern, likePattern, likePattern, likePattern)) {
       long id = ((Number) row.get("id")).longValue();
+      if (!seenRoutes.add(id)) continue;
       String code = (String) row.get("code");
       String name = (String) row.get("name");
       double text = textMatchScore(code, name, queryCore);
@@ -134,8 +144,10 @@ public class SearchService {
       hits.add(new SearchHitDto(KIND_ROUTE, id, code, name, roundScore(score)));
     }
 
-    for (var row : jdbcTemplate.queryForList(STOP_SQL, likePattern, likePattern)) {
+    Set<Long> seenStops = new LinkedHashSet<>();
+    for (var row : jdbcTemplate.queryForList(STOP_SQL, likePattern, likePattern, likePattern, likePattern)) {
       long id = ((Number) row.get("id")).longValue();
+      if (!seenStops.add(id)) continue;
       String code = (String) row.get("code");
       String name = (String) row.get("name");
       long impressions = ((Number) row.get("impressions")).longValue();
@@ -168,7 +180,7 @@ public class SearchService {
     if (q == null || !QUERY_SAFE.matcher(q.trim()).matches()) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST,
-          "Query must be 2–128 characters: letters, digits, spaces, and hyphen only");
+          "Query must be 2–128 characters: letters (including CJK), digits, spaces, and hyphen only");
     }
   }
 

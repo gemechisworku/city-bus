@@ -7,5 +7,227 @@
       <button type="button" (click)="logout()">Log out</button>
     </nav>
   </header>
-  <p>Administrator workspace (templates, ranking, dictionaries, and cleaning rules arrive in later phases).</p>
+
+  <div class="tabs">
+    <button [class.active]="tab === 'import'" (click)="tab = 'import'">Import</button>
+    <button [class.active]="tab === 'ranking'" (click)="tab = 'ranking'">Ranking</button>
+    <button [class.active]="tab === 'rules'" (click)="tab = 'rules'">Cleaning rules</button>
+    <button [class.active]="tab === 'dicts'" (click)="tab = 'dicts'">Dictionaries</button>
+    <button [class.active]="tab === 'users'" (click)="tab = 'users'">Users</button>
+    <button [class.active]="tab === 'alerts'" (click)="tab = 'alerts'">Alerts</button>
+    <button [class.active]="tab === 'diag'" (click)="tab = 'diag'">Diagnostics</button>
+    <button [class.active]="tab === 'audit'" (click)="tab = 'audit'">Audit log</button>
+  </div>
+
+  <!-- IMPORT -->
+  @if (tab === 'import') {
+    <section class="section">
+      <h2>Canonical data import</h2>
+      <p class="hint">Upload a JSON file with routes, stops, and schedules to import into the system.</p>
+      <div class="input-row">
+        <input type="file" accept=".json" (change)="onFileSelected($event)" />
+        <button [disabled]="!importFile" (click)="triggerImport()">Import</button>
+      </div>
+      @if (importStatus) {
+        <p class="status">{{ importStatus }}</p>
+      }
+    </section>
+  }
+
+  <!-- RANKING -->
+  @if (tab === 'ranking') {
+    <section class="section">
+      <h2>Search ranking configuration</h2>
+      <form (ngSubmit)="saveRanking()" class="form-grid">
+        <label>Route weight <input type="number" step="0.1" [(ngModel)]="ranking.routeWeight" name="rw" /></label>
+        <label>Stop weight <input type="number" step="0.1" [(ngModel)]="ranking.stopWeight" name="sw" /></label>
+        <label>Popularity weight <input type="number" step="0.1" [(ngModel)]="ranking.popularityWeight" name="pw" /></label>
+        <label>Max suggestions <input type="number" [(ngModel)]="ranking.maxSuggestions" name="ms" /></label>
+        <label>Max results <input type="number" [(ngModel)]="ranking.maxResults" name="mr" /></label>
+        <button type="submit">Save</button>
+      </form>
+    </section>
+  }
+
+  <!-- CLEANING RULES -->
+  @if (tab === 'rules') {
+    <section class="section">
+      <h2>Cleaning rule sets</h2>
+      <div class="input-row">
+        <input placeholder="Name" [(ngModel)]="ruleName" />
+        <input placeholder="Field target" [(ngModel)]="ruleFieldTarget" />
+        <input placeholder="Pattern (regex)" [(ngModel)]="rulePattern" />
+        <input placeholder="Replacement" [(ngModel)]="ruleReplacement" />
+        <button (click)="createRule()">Add</button>
+      </div>
+      @if (rules.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Pattern</th><th>Replacement</th><th></th></tr></thead>
+          <tbody>
+            @for (r of rules; track r.id) {
+              <tr>
+                <td>{{ r.id }}</td>
+                <td>{{ r.name }}</td>
+                <td><code>{{ r.pattern }}</code></td>
+                <td>{{ r.replacement }}</td>
+                <td><button class="btn-sm btn-danger" (click)="deleteRule(r.id)">Delete</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No cleaning rules defined.</p>
+      }
+    </section>
+  }
+
+  <!-- DICTIONARIES -->
+  @if (tab === 'dicts') {
+    <section class="section">
+      <h2>Field standard dictionaries</h2>
+      <div class="input-row">
+        <input placeholder="Field name" [(ngModel)]="dictFieldName" />
+        <input placeholder="Canonical value" [(ngModel)]="dictCanonicalValue" />
+        <input placeholder="Aliases (comma-separated)" [(ngModel)]="dictAliases" />
+        <button (click)="createDict()">Add</button>
+      </div>
+      @if (dicts.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Field</th><th>Canonical</th><th>Aliases</th><th></th></tr></thead>
+          <tbody>
+            @for (d of dicts; track d.id) {
+              <tr>
+                <td>{{ d.id }}</td>
+                <td>{{ d.fieldName }}</td>
+                <td>{{ d.canonicalValue }}</td>
+                <td>{{ d.aliases }}</td>
+                <td><button class="btn-sm btn-danger" (click)="deleteDict(d.id)">Delete</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No dictionary entries.</p>
+      }
+    </section>
+  }
+
+  <!-- USERS -->
+  @if (tab === 'users') {
+    <section class="section">
+      <h2>User management</h2>
+      @if (users.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Username</th><th>Enabled</th><th>Action</th></tr></thead>
+          <tbody>
+            @for (u of users; track u.id) {
+              <tr>
+                <td>{{ u.id }}</td>
+                <td>{{ u.username }}</td>
+                <td>{{ u.enabled ? 'Yes' : 'No' }}</td>
+                <td>
+                  <button class="btn-sm" (click)="toggleUser(u.id, !u.enabled)">
+                    {{ u.enabled ? 'Disable' : 'Enable' }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No users found.</p>
+      }
+    </section>
+  }
+
+  <!-- ALERTS -->
+  @if (tab === 'alerts') {
+    <section class="section">
+      <h2>System alerts</h2>
+      <div class="input-row">
+        <select [(ngModel)]="alertSeverity">
+          <option value="INFO">Info</option>
+          <option value="WARNING">Warning</option>
+          <option value="CRITICAL">Critical</option>
+        </select>
+        <input placeholder="Source" [(ngModel)]="alertSource" />
+        <input placeholder="Title" [(ngModel)]="alertTitle" />
+        <input placeholder="Detail (optional)" [(ngModel)]="alertDetail" />
+        <button (click)="createAlert()">Create alert</button>
+      </div>
+      @if (alerts.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Severity</th><th>Source</th><th>Title</th><th>Ack</th><th></th></tr></thead>
+          <tbody>
+            @for (a of alerts; track a.id) {
+              <tr>
+                <td>{{ a.id }}</td>
+                <td><span class="badge" [attr.data-severity]="a.severity">{{ a.severity }}</span></td>
+                <td>{{ a.source }}</td>
+                <td>{{ a.title }}</td>
+                <td>{{ a.acknowledged ? 'Yes' : 'No' }}</td>
+                <td>
+                  @if (!a.acknowledged) {
+                    <button class="btn-sm" (click)="ackAlert(a.id)">Acknowledge</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No alerts.</p>
+      }
+    </section>
+  }
+
+  <!-- DIAGNOSTICS -->
+  @if (tab === 'diag') {
+    <section class="section">
+      <h2>Diagnostics</h2>
+      <div class="input-row">
+        <select [(ngModel)]="diagType">
+          <option value="FULL">Full</option>
+          <option value="DB_HEALTH">Database health</option>
+          <option value="TABLE_STATS">Table statistics</option>
+          <option value="CONNECTION_POOL">Connection pool</option>
+        </select>
+        <button (click)="runDiag()">Run diagnostic</button>
+      </div>
+      @if (diagResult) {
+        <div class="diag-result">
+          <h3>Report: {{ diagResult.reportType }} — {{ diagResult.status }}</h3>
+          <p><strong>Summary:</strong> {{ diagResult.summary }}</p>
+          <pre>{{ diagResult.detail }}</pre>
+          <p class="hint">Completed: {{ diagResult.completedAt }}</p>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- AUDIT -->
+  @if (tab === 'audit') {
+    <section class="section">
+      <h2>Login audit log</h2>
+      <button class="btn-sm" (click)="loadAudit()">Refresh</button>
+      @if (auditLogs.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Username</th><th>Success</th><th>IP</th><th>Time</th></tr></thead>
+          <tbody>
+            @for (l of auditLogs; track l.id) {
+              <tr>
+                <td>{{ l.id }}</td>
+                <td>{{ l.usernameAttempt }}</td>
+                <td>{{ l.success ? 'Yes' : 'No' }}</td>
+                <td>{{ l.ipAddress }}</td>
+                <td>{{ l.createdAt }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No audit entries.</p>
+      }
+    </section>
+  }
 </div>

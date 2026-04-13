@@ -11,5 +11,242 @@
       <button type="button" (click)="logout()">Log out</button>
     </nav>
   </header>
-  <p>Passenger workspace (search, reservations, and message center will land in later phases).</p>
+
+  <div class="tabs">
+    <button [class.active]="tab === 'search'" (click)="tab = 'search'">Search</button>
+    <button [class.active]="tab === 'reservations'" (click)="tab = 'reservations'">Reservations</button>
+    <button [class.active]="tab === 'checkins'" (click)="tab = 'checkins'">Check-ins</button>
+    <button [class.active]="tab === 'messages'" (click)="tab = 'messages'">Messages</button>
+    <button [class.active]="tab === 'prefs'" (click)="tab = 'prefs'">Reminders</button>
+    <button [class.active]="tab === 'dnd'" (click)="tab = 'dnd'">Do Not Disturb</button>
+  </div>
+
+  <!-- SEARCH -->
+  @if (tab === 'search') {
+    <section class="section">
+      <h2>Search stops &amp; routes</h2>
+      <div class="input-row">
+        <input placeholder="Search..." [(ngModel)]="searchQuery" (keyup.enter)="search()" />
+        <button (click)="search()">Search</button>
+      </div>
+      @if (searchError) { <p class="err">{{ searchError }}</p> }
+      @if (searchResults.length) {
+        <table>
+          <thead><tr><th>Type</th><th>ID</th><th>Code</th><th>Name</th><th>Score</th><th>Actions</th></tr></thead>
+          <tbody>
+            @for (r of searchResults; track r.id) {
+              <tr>
+                <td>{{ r.kind }}</td>
+                <td>{{ r.id }}</td>
+                <td>{{ r.code }}</td>
+                <td>{{ r.name }}</td>
+                <td>{{ r.score | number:'1.2-2' }}</td>
+                <td>
+                  @if (r.kind === 'STOP') {
+                    <button class="btn-sm" (click)="useStopForCheckin(r.id)">Check in</button>
+                  }
+                  @if (r.kind === 'ROUTE') {
+                    <button class="btn-sm" (click)="loadRouteSchedules(r.id)">Schedules</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+      @if (selectedRoute) {
+        <div class="route-detail">
+          <h3>{{ selectedRoute.name }} ({{ selectedRoute.code }}) — Schedules</h3>
+          <p class="hint">Select a schedule and stop to create a reservation.</p>
+          @if (selectedRoute.stops.length) {
+            <div class="input-row">
+              <label>Stop:
+                <select [(ngModel)]="selectedRouteStopId">
+                  <option [ngValue]="null">-- pick a stop --</option>
+                  @for (s of selectedRoute.stops; track s.sequence) {
+                    <option [ngValue]="s.stopId">{{ s.sequence }}. {{ s.name }} ({{ s.stopCode }})</option>
+                  }
+                </select>
+              </label>
+            </div>
+          }
+          @if (selectedRoute.schedules.length) {
+            <table>
+              <thead><tr><th>Trip</th><th>Departure</th><th>Action</th></tr></thead>
+              <tbody>
+                @for (s of selectedRoute.schedules; track s.scheduleId) {
+                  <tr>
+                    <td>{{ s.tripCode }}</td>
+                    <td>{{ s.departureTime }}</td>
+                    <td>
+                      <button class="btn-sm" [disabled]="!selectedRouteStopId" (click)="reserveFromSchedule(s.scheduleId)">Reserve</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="empty">No schedules for this route.</p>
+          }
+        </div>
+      }
+    </section>
+  }
+
+  <!-- RESERVATIONS -->
+  @if (tab === 'reservations') {
+    <section class="section">
+      <h2>My reservations</h2>
+      <div class="input-row">
+        <input type="number" placeholder="Schedule ID" [(ngModel)]="resScheduleId" />
+        <input type="number" placeholder="Stop ID" [(ngModel)]="resStopId" />
+        <button (click)="createReservation()">Reserve</button>
+      </div>
+      @if (reservations.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Trip</th><th>Stop</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            @for (r of reservations; track r.id) {
+              <tr>
+                <td>{{ r.id }}</td>
+                <td>{{ r.tripCode || r.scheduleId }}</td>
+                <td>{{ r.stopName || r.stopId }}</td>
+                <td><span class="badge" [attr.data-status]="r.status">{{ r.status }}</span></td>
+                <td>
+                  @if (r.status === 'PENDING') {
+                    <button class="btn-sm" (click)="confirmReservation(r.id)">Confirm</button>
+                    <button class="btn-sm btn-danger" (click)="cancelReservation(r.id)">Cancel</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No reservations yet.</p>
+      }
+    </section>
+  }
+
+  <!-- CHECK-INS -->
+  @if (tab === 'checkins') {
+    <section class="section">
+      <h2>My check-ins</h2>
+      <div class="input-row">
+        <input type="number" placeholder="Stop ID" [(ngModel)]="checkinStopId" />
+        <button (click)="createCheckin()">Check in</button>
+      </div>
+      @if (checkins.length) {
+        <table>
+          <thead><tr><th>ID</th><th>Stop</th><th>Stop name</th><th>Time</th></tr></thead>
+          <tbody>
+            @for (c of checkins; track c.id) {
+              <tr><td>{{ c.id }}</td><td>{{ c.stopCode }}</td><td>{{ c.stopName }}</td><td>{{ c.checkedInAt }}</td></tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No check-ins yet.</p>
+      }
+    </section>
+  }
+
+  <!-- MESSAGES -->
+  @if (tab === 'messages') {
+    <section class="section">
+      <h2>Message center</h2>
+      <div class="msg-compose">
+        <input placeholder="Subject" [(ngModel)]="msgSubject" />
+        <textarea placeholder="Message body..." [(ngModel)]="msgBody" rows="3"></textarea>
+        <button (click)="sendMessage()">Send</button>
+      </div>
+      @if (messages.length) {
+        <div class="msg-list">
+          @for (m of messages; track m.id) {
+            <div class="msg" [class.unread]="!m.read">
+              <div class="msg__head">
+                <strong>{{ m.subject }}</strong>
+                <span class="msg__time">{{ m.createdAt }}</span>
+              </div>
+              <p class="msg__body">{{ m.body }}</p>
+              @if (!m.read) {
+                <button class="btn-sm" (click)="markRead(m.id)">Mark read</button>
+              }
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="empty">No messages.</p>
+      }
+    </section>
+  }
+
+  <!-- REMINDER PREFS -->
+  @if (tab === 'prefs') {
+    <section class="section">
+      <h2>Reminder preferences</h2>
+      <form (ngSubmit)="savePrefs()" class="prefs-form">
+        <label>
+          <input type="checkbox" [(ngModel)]="prefs.enabled" name="enabled" /> Reminders enabled
+        </label>
+        <label>
+          Minutes before
+          <input type="number" [(ngModel)]="prefs.minutesBefore" name="minutesBefore" min="1" max="120" />
+        </label>
+        <label>
+          Channel
+          <select [(ngModel)]="prefs.channel" name="channel">
+            <option value="IN_APP">In-App</option>
+            <option value="EMAIL">Email</option>
+            <option value="SMS">SMS</option>
+          </select>
+        </label>
+        <button type="submit">Save preferences</button>
+      </form>
+    </section>
+  }
+
+  <!-- DO NOT DISTURB -->
+  @if (tab === 'dnd') {
+    <section class="section">
+      <h2>Do Not Disturb windows</h2>
+      <p class="hint">Set periods when you don't want to receive notifications (e.g., 22:00–07:00).</p>
+      <div class="dnd-form">
+        <label>
+          Day
+          <select [(ngModel)]="dndDay">
+            @for (d of dayNames; track d; let i = $index) {
+              <option [ngValue]="i">{{ d }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          Start
+          <input type="time" [(ngModel)]="dndStart" />
+        </label>
+        <label>
+          End
+          <input type="time" [(ngModel)]="dndEnd" />
+        </label>
+        <button class="btn-primary" (click)="createDndWindow()">Add</button>
+      </div>
+      @if (dndWindows.length) {
+        <table>
+          <thead><tr><th>Day</th><th>Start</th><th>End</th><th>Actions</th></tr></thead>
+          <tbody>
+            @for (w of dndWindows; track w.id) {
+              <tr>
+                <td>{{ dayNames[w.dayOfWeek] }}</td>
+                <td>{{ w.startTime }}</td>
+                <td>{{ w.endTime }}</td>
+                <td><button class="btn-sm btn-danger" (click)="deleteDndWindow(w.id)">Remove</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty">No DND windows set.</p>
+      }
+    </section>
+  }
 </div>
