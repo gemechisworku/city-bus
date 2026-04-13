@@ -1,8 +1,0 @@
-spring:
-  jpa:
-    hibernate:
-      ddl-auto: validate
-
-logging:
-  level:
-    org.flywaydb: INFO

@@ -1,4 +1,0 @@
-/app/src/main/java/com/eegalepoint/citybus/CityBusApplication.java
-/app/src/main/java/com/eegalepoint/citybus/api/ApiInfoController.java
-/app/src/main/java/com/eegalepoint/citybus/config/SecurityConfig.java
-/app/src/main/java/com/eegalepoint/citybus/observability/TraceIdFilter.java
