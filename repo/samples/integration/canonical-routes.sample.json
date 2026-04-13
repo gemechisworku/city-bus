@@ -1,0 +1,32 @@
+{
+  "templateName": "DEFAULT_V1",
+  "routes": [
+    {
+      "routeCode": "R-101",
+      "name": "Downtown Loop",
+      "effectiveFrom": "2026-04-01",
+      "stops": [
+        {
+          "stopCode": "S-1",
+          "name": "Central Terminal",
+          "latitude": 40.712776,
+          "longitude": -74.005974,
+          "sequence": 1,
+          "effectiveFrom": "2026-04-01"
+        },
+        {
+          "stopCode": "S-2",
+          "name": "Market Square",
+          "latitude": 40.713501,
+          "longitude": -74.009201,
+          "sequence": 2,
+          "effectiveFrom": "2026-04-01"
+        }
+      ],
+      "schedules": [
+        { "tripCode": "AM-1", "departureTime": "06:30:00" },
+        { "tripCode": "AM-2", "departureTime": "07:00:00" }
+      ]
+    }
+  ]
+}

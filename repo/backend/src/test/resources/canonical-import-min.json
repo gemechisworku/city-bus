@@ -1,0 +1,19 @@
+{
+  "templateName": "DEFAULT_V1",
+  "routes": [
+    {
+      "routeCode": "R-IT-1",
+      "name": "Integration Route",
+      "stops": [
+        {
+          "stopCode": "S-IT-1",
+          "name": "Integration Stop",
+          "latitude": 40.712776,
+          "longitude": -74.005974,
+          "sequence": 1
+        }
+      ],
+      "schedules": [{ "tripCode": "T1", "departureTime": "08:00:00" }]
+    }
+  ]
+}

@@ -14,3 +14,11 @@ Mapped to [`plans/implementation_plan.md`](../../plans/implementation_plan.md) �
 | Complete structure | `backend/`, `frontend/`, migrations, tests, `run_test.sh`, Compose | Checklist audit |
 
 **Phase 0–1 gate:** Repository layout exists; Compose builds and starts all services; backend health returns UP; Flyway applies auth migrations in CI (Testcontainers) and in Compose; seed roles and admin user present; aggregate `./run_test.sh` runs backend and frontend tests.
+
+**Phase 2 gate:** JWT login/me/logout; password policy on API (≥8 chars); `login_audit` populated; RBAC enforced server-side; Angular login + guards; `./run_test.sh` green.
+
+**Phase 3 gate:** Canonical JSON import via `POST /api/v1/admin/imports/run` (ADMIN); `GET /api/v1/admin/imports` lists jobs; `GET /api/v1/routes`, `GET /api/v1/routes/{id}` (authenticated); sample payload in `samples/`; `TransitCanonicalImportIT` green.
+
+**Phase 4 gate:** `GET /api/v1/search/suggestions`, `GET /api/v1/search/results` with query validation, ranking config, and popularity tracking; `GET /api/v1/stops/{id}`; `SearchApiIT` green.
+
+**Phase 5 gate:** `POST/GET /api/v1/passenger/reservations`, `PUT .../reservations/{id}` (PASSENGER/ADMIN); `POST/GET /api/v1/passenger/checkins`; `GET/PUT /api/v1/passenger/reminder-preferences`; DND windows table; `GET/POST /api/v1/messages`, `GET .../messages/{id}`, `POST .../messages/{id}/read`; message queue with delivery attempts; redaction rules; reservation/cancel auto-generates queued notifications; dispatcher role excluded from passenger endpoints; `PassengerMessagingIT` green.

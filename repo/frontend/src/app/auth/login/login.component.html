@@ -1,0 +1,25 @@
+<div class="login">
+  <h1>City Bus</h1>
+  <p class="login__hint">Sign in (password must be at least 8 characters)</p>
+  <form (ngSubmit)="submit()" #f="ngForm">
+    <label>
+      Username
+      <input name="username" [(ngModel)]="username" required autocomplete="username" />
+    </label>
+    <label>
+      Password
+      <input
+        name="password"
+        type="password"
+        [(ngModel)]="password"
+        required
+        minlength="8"
+        autocomplete="current-password"
+      />
+    </label>
+    <button type="submit" [disabled]="loading || !f.valid">Sign in</button>
+  </form>
+  @if (error) {
+    <p class="login__err" role="alert">{{ error }}</p>
+  }
+</div>

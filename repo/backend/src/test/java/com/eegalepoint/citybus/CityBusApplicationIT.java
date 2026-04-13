@@ -2,11 +2,15 @@ package com.eegalepoint.citybus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -53,10 +57,92 @@ class CityBusApplicationIT {
   }
 
   @Test
-  void apiPingReturnsOk() {
+  void apiPingRequiresAuthentication() {
     ResponseEntity<String> res = restTemplate.getForEntity("/api/v1/ping", String.class);
+    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+
+  @Test
+  void loginSuccessAndPingWithBearer() {
+    ResponseEntity<Map> login =
+        restTemplate.postForEntity(
+            "/api/v1/auth/login",
+            Map.of("username", "admin", "password", "ChangeMe123!"),
+            Map.class);
+    assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(login.getBody()).containsKey("accessToken");
+    String token = (String) login.getBody().get("accessToken");
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(token);
+    ResponseEntity<String> ping =
+        restTemplate.exchange(
+            "/api/v1/ping", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+    assertThat(ping.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(ping.getBody()).contains("ok");
+    assertThat(ping.getHeaders().getFirst("X-Trace-Id")).isNotBlank();
+  }
+
+  @Test
+  void loginBadPasswordReturns401() {
+    ResponseEntity<Map> res =
+        restTemplate.postForEntity(
+            "/api/v1/auth/login",
+            Map.of("username", "admin", "password", "WrongPass12"),
+            Map.class);
+    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+
+  @Test
+  void loginShortPasswordReturns400() {
+    ResponseEntity<Map> res =
+        restTemplate.postForEntity(
+            "/api/v1/auth/login",
+            Map.of("username", "admin", "password", "short"),
+            Map.class);
+    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+  }
+
+  @Test
+  void meReturnsUserAndRoles() {
+    String token = loginToken("admin", "ChangeMe123!");
+    HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(token);
+    ResponseEntity<Map> me =
+        restTemplate.exchange(
+            "/api/v1/auth/me", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+    assertThat(me.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(me.getBody().get("username")).isEqualTo("admin");
+    assertThat(me.getBody()).containsKey("roles");
+  }
+
+  @Test
+  void rbacPassengerCannotAccessAdminDemo() {
+    String token = loginToken("passenger1", "ChangeMe123!");
+    HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(token);
+    ResponseEntity<Map> res =
+        restTemplate.exchange(
+            "/api/v1/demo/admin", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
+  @Test
+  void rbacAdminCanAccessAdminDemo() {
+    String token = loginToken("admin", "ChangeMe123!");
+    HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(token);
+    ResponseEntity<Map> res =
+        restTemplate.exchange(
+            "/api/v1/demo/admin", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
     assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
-    assertThat(res.getBody()).contains("ok");
-    assertThat(res.getHeaders().getFirst("X-Trace-Id")).isNotBlank();
+    assertThat(res.getBody().get("scope")).isEqualTo("admin");
+  }
+
+  private String loginToken(String user, String pass) {
+    ResponseEntity<Map> login =
+        restTemplate.postForEntity("/api/v1/auth/login", Map.of("username", user, "password", pass), Map.class);
+    assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
+    return (String) login.getBody().get("accessToken");
   }
 }

@@ -3,6 +3,11 @@ spring:
     hibernate:
       ddl-auto: validate
 
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+    expiration-seconds: ${APP_JWT_EXPIRATION_SECONDS:3600}
+
 logging:
   level:
     org.flywaydb: INFO

@@ -49,4 +49,4 @@ erDiagram
   stops ||--o{ route_stops : ordered
 ```
 
-Phases 0–1 implement the **identity and audit** tables required for authentication and RBAC seeds; other groups are introduced in subsequent phases.
+Phases 0–2 implement the **identity and audit** tables required for authentication and RBAC seeds. Phase 3 adds **transit and integration** tables (`routes`, `route_versions`, `stops`, `stop_versions`, `route_stops`, `schedules`, `source_import_jobs`, `field_mappings`). Phase 4 adds **search and ranking** tables (`search_events`, `stop_popularity_metrics`, `ranking_config`). Phase 5 adds **passenger and messaging** tables (`passenger_reservations`, `passenger_checkins`, `reminder_preferences`, `do_not_disturb_windows`, `messages`, `message_queue`, `message_queue_attempts`, `message_redaction_rules`). Remaining ERD groups follow in later phases.

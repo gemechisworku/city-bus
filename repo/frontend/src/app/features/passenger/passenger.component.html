@@ -1,0 +1,15 @@
+<div class="page">
+  <header class="page__nav">
+    <span class="page__title">Passenger</span>
+    <nav>
+      @if (auth.hasAnyRole(['ADMIN', 'DISPATCHER'])) {
+        <a routerLink="/dispatcher">Dispatcher</a>
+      }
+      @if (auth.hasAnyRole(['ADMIN'])) {
+        <a routerLink="/admin">Admin</a>
+      }
+      <button type="button" (click)="logout()">Log out</button>
+    </nav>
+  </header>
+  <p>Passenger workspace (search, reservations, and message center will land in later phases).</p>
+</div>
